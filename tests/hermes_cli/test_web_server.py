@@ -307,6 +307,28 @@ class TestWebServerEndpoints:
         if resp.status_code == 200:
             assert "FastAPI" not in resp.text  # Should not serve the actual source
 
+    def test_session_token_not_leaked_in_html(self):
+        """The served HTML must NEVER contain the raw session token.
+
+        Regression guard: the token used to be injected as
+        ``<script>window.__HERMES_SESSION_TOKEN__=…</script>`` which leaked
+        the token to anyone who could fetch ``/``. It is now delivered via
+        a one-time URL fragment instead; the HTML response must be inert.
+        """
+        from hermes_cli.web_server import _SESSION_TOKEN
+
+        resp = self.client.get("/")
+        # If the SPA isn't built in this environment, the catch-all returns
+        # a 404 JSON payload and there is no HTML to check.
+        if resp.status_code == 404:
+            return
+        assert resp.status_code == 200
+        body = resp.text
+        assert _SESSION_TOKEN not in body, "raw session token leaked in HTML"
+        assert "__HERMES_SESSION_TOKEN__" not in body, (
+            "stale token-injection <script> still present"
+        )
+
 
 # ---------------------------------------------------------------------------
 # _build_schema_from_config tests

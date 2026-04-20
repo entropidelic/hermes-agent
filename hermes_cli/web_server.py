@@ -50,7 +50,7 @@ from gateway.status import get_running_pid, read_runtime_status
 try:
     from fastapi import FastAPI, HTTPException, Request
     from fastapi.middleware.cors import CORSMiddleware
-    from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+    from fastapi.responses import FileResponse, JSONResponse
     from fastapi.staticfiles import StaticFiles
     from pydantic import BaseModel
 except ImportError:
@@ -67,7 +67,11 @@ app = FastAPI(title="Hermes Agent", version=__version__)
 # ---------------------------------------------------------------------------
 # Session token for protecting sensitive endpoints (reveal).
 # Generated fresh on every server start — dies when the process exits.
-# Injected into the SPA HTML so only the legitimate web UI can use it.
+# Handed to the browser exactly once via a URL fragment (#tk=<token>) that
+# ``start_server`` prints to stdout; the SPA scrubs the fragment from the
+# address bar and stores the token in sessionStorage. The token is never
+# embedded in server-rendered HTML, so ``GET /`` is inert to unauthenticated
+# callers even when the dashboard is bound to a public interface.
 # ---------------------------------------------------------------------------
 _SESSION_TOKEN = secrets.token_urlsafe(32)
 
@@ -2036,9 +2040,10 @@ async def get_usage_analytics(days: int = 30):
 def mount_spa(application: FastAPI):
     """Mount the built SPA. Falls back to index.html for client-side routing.
 
-    The session token is injected into index.html via a ``<script>`` tag so
-    the SPA can authenticate against protected API endpoints without a
-    separate (unauthenticated) token-dispensing endpoint.
+    The session token is NOT embedded in the served HTML. Clients receive
+    it via a one-time URL fragment (``#tk=<token>``) printed to the terminal
+    by ``start_server``; the SPA reads the fragment, stashes the token in
+    sessionStorage, and scrubs it from the address bar.
     """
     if not WEB_DIST.exists():
         @application.get("/{full_path:path}")
@@ -2050,18 +2055,7 @@ def mount_spa(application: FastAPI):
         return
 
     _index_path = WEB_DIST / "index.html"
-
-    def _serve_index():
-        """Return index.html with the session token injected."""
-        html = _index_path.read_text()
-        token_script = (
-            f'<script>window.__HERMES_SESSION_TOKEN__="{_SESSION_TOKEN}";</script>'
-        )
-        html = html.replace("</head>", f"{token_script}</head>", 1)
-        return HTMLResponse(
-            html,
-            headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
-        )
+    _index_headers = {"Cache-Control": "no-store, no-cache, must-revalidate"}
 
     application.mount("/assets", StaticFiles(directory=WEB_DIST / "assets"), name="assets")
 
@@ -2076,7 +2070,7 @@ def mount_spa(application: FastAPI):
             and file_path.is_file()
         ):
             return FileResponse(file_path)
-        return _serve_index()
+        return FileResponse(_index_path, headers=_index_headers)
 
 
 # ---------------------------------------------------------------------------
@@ -2319,7 +2313,16 @@ def start_server(
     open_browser: bool = True,
     allow_public: bool = False,
 ):
-    """Start the web UI server."""
+    """Start the web UI server.
+
+    The ephemeral session token is printed to stdout as part of the access
+    URL (``http://<host>:<port>/#tk=<token>``). Anything that captures
+    terminal output — tmux scrollback, ``script``, terminal recorders, CI
+    log aggregators — will therefore capture the token. The token dies
+    when this process exits, which bounds the exposure, but operators
+    running the dashboard in recorded or shared sessions should be aware
+    of this trade-off.
+    """
     import uvicorn
 
     _LOCALHOST = ("127.0.0.1", "localhost", "::1")
@@ -2335,6 +2338,12 @@ def start_server(
             "authentication. Only use on trusted networks.", host,
         )
 
+    # The session token is bound to this process — it dies when the server
+    # stops. It is passed to the browser via the URL fragment (never sent to
+    # the server, never logged by proxies) and scrubbed from the address bar
+    # by the SPA on first load.
+    url = f"http://{host}:{port}/#tk={_SESSION_TOKEN}"
+
     if open_browser:
         import threading
         import webbrowser
@@ -2342,9 +2351,9 @@ def start_server(
         def _open():
             import time as _t
             _t.sleep(1.0)
-            webbrowser.open(f"http://{host}:{port}")
+            webbrowser.open(url)
 
         threading.Thread(target=_open, daemon=True).start()
 
-    print(f"  Hermes Web UI → http://{host}:{port}")
+    print(f"  Hermes Web UI → {url}")
     uvicorn.run(app, host=host, port=port, log_level="warning")
