@@ -319,6 +319,11 @@ class TestWebServerEndpoints:
         ``<script>window.__HERMES_SESSION_TOKEN__=…</script>`` which leaked
         the token to anyone who could fetch ``/``. It is now delivered via
         a one-time URL fragment instead; the HTML response must be inert.
+
+        Also pins the response headers the SPA shell depends on
+        (``text/html`` content type, ``no-store`` cache control) so a
+        future refactor of the static-file pipeline can't silently cache
+        a token-containing page on an upstream proxy.
         """
         from hermes_cli.web_server import _SESSION_TOKEN
 
@@ -332,6 +337,13 @@ class TestWebServerEndpoints:
         assert _SESSION_TOKEN not in body, "raw session token leaked in HTML"
         assert "__HERMES_SESSION_TOKEN__" not in body, (
             "stale token-injection <script> still present"
+        )
+        assert resp.headers.get("content-type", "").startswith("text/html"), (
+            f"expected text/html, got {resp.headers.get('content-type')!r}"
+        )
+        assert "no-store" in resp.headers.get("cache-control", "").lower(), (
+            f"expected no-store in Cache-Control, got "
+            f"{resp.headers.get('cache-control')!r}"
         )
 
 

@@ -150,9 +150,9 @@ DANGEROUS_PATTERNS = [
     # The patterns below catch the two CLI forms we ship so that an agent
     # pasting one of them still triggers a human approval prompt.
     (r'\bhermes\s+dashboard\b.*--insecure\b', "expose hermes dashboard to network (--insecure)"),
-    (r'\bhermes\s+dashboard\b.*--host[=\s]+(?!(?:127\.0\.0\.1|localhost|::1)\b)\S+', "bind hermes dashboard to non-localhost address"),
+    (r'\bhermes\s+dashboard\b.*--host[=\s]+(?!(?:127\.0\.0\.1|localhost|::1|0:0:0:0:0:0:0:1)\b)\S+', "bind hermes dashboard to non-localhost address"),
     (r'\bhermes_cli(?:\.main)?\b.*\bdashboard\b.*--insecure\b', "expose hermes dashboard to network (python -m form)"),
-    (r'\bhermes_cli(?:\.main)?\b.*\bdashboard\b.*--host[=\s]+(?!(?:127\.0\.0\.1|localhost|::1)\b)\S+', "bind hermes dashboard to non-localhost address (python -m form)"),
+    (r'\bhermes_cli(?:\.main)?\b.*\bdashboard\b.*--host[=\s]+(?!(?:127\.0\.0\.1|localhost|::1|0:0:0:0:0:0:0:1)\b)\S+', "bind hermes dashboard to non-localhost address (python -m form)"),
 ]
 
 

@@ -5,6 +5,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch as mock_patch
 
+import pytest
+
 import tools.approval as approval_module
 from tools.approval import (
     _get_approval_mode,
@@ -839,79 +841,33 @@ class TestChmodExecuteCombo:
 
 
 class TestDashboardExposureProtection:
-    """Prevent the agent from silently exposing the web dashboard on the network."""
+    """Prevent the agent from silently exposing the web dashboard on the network.
 
-    def test_dashboard_insecure_flag_detected(self):
-        cmd = "hermes dashboard --insecure"
-        dangerous, _, desc = detect_dangerous_command(cmd)
-        assert dangerous is True
-        assert "dashboard" in desc.lower()
+    Asserts the flag/no-flag behavior only. Description prose is
+    documentation, not spec — reword freely without breaking these tests.
+    """
 
-    def test_dashboard_insecure_with_other_flags_detected(self):
-        cmd = "hermes dashboard --no-open --port 9119 --host 0.0.0.0 --insecure"
-        dangerous, _, desc = detect_dangerous_command(cmd)
-        assert dangerous is True
-
-    def test_dashboard_host_0_0_0_0_detected(self):
-        cmd = "hermes dashboard --host 0.0.0.0"
-        dangerous, _, desc = detect_dangerous_command(cmd)
-        assert dangerous is True
-        assert "non-localhost" in desc.lower()
-
-    def test_dashboard_host_equals_form_detected(self):
-        cmd = "hermes dashboard --host=192.168.1.10"
+    @pytest.mark.parametrize("cmd,expected", [
+        # hermes CLI — exposure flags must trigger approval
+        ("hermes dashboard --insecure", True),
+        ("hermes dashboard --no-open --port 9119 --host 0.0.0.0 --insecure", True),
+        ("hermes dashboard --host 0.0.0.0", True),
+        ("hermes dashboard --host=192.168.1.10", True),
+        ("hermes dashboard --host 10.0.0.5 --port 9119", True),
+        # python -m form — same rules
+        ("python -m hermes_cli.main dashboard --insecure", True),
+        ("python -m hermes_cli.main dashboard --host 0.0.0.0", True),
+        ("python -m hermes_cli dashboard --insecure", True),
+        # localhost binds (both short and long IPv6 loopback) — must NOT trigger
+        ("hermes dashboard", False),
+        ("hermes dashboard --no-open", False),
+        ("hermes dashboard --host 127.0.0.1", False),
+        ("hermes dashboard --host localhost --port 9120", False),
+        ("hermes dashboard --host ::1", False),
+        ("hermes dashboard --host 0:0:0:0:0:0:0:1", False),
+        ("python -m hermes_cli.main dashboard", False),
+        ("python -m hermes_cli.main dashboard --host 127.0.0.1", False),
+    ])
+    def test_dashboard_exposure(self, cmd, expected):
         dangerous, _, _ = detect_dangerous_command(cmd)
-        assert dangerous is True
-
-    def test_dashboard_host_public_ip_detected(self):
-        cmd = "hermes dashboard --host 10.0.0.5 --port 9119"
-        dangerous, _, _ = detect_dangerous_command(cmd)
-        assert dangerous is True
-
-    def test_dashboard_localhost_not_flagged(self):
-        cmd = "hermes dashboard --host 127.0.0.1"
-        dangerous, _, _ = detect_dangerous_command(cmd)
-        assert dangerous is False
-
-    def test_dashboard_localhost_name_not_flagged(self):
-        cmd = "hermes dashboard --host localhost --port 9120"
-        dangerous, _, _ = detect_dangerous_command(cmd)
-        assert dangerous is False
-
-    def test_dashboard_ipv6_loopback_not_flagged(self):
-        cmd = "hermes dashboard --host ::1"
-        dangerous, _, _ = detect_dangerous_command(cmd)
-        assert dangerous is False
-
-    def test_dashboard_default_invocation_not_flagged(self):
-        """Plain `hermes dashboard` with no flags must stay ergonomic."""
-        cmd = "hermes dashboard"
-        dangerous, _, _ = detect_dangerous_command(cmd)
-        assert dangerous is False
-
-    def test_dashboard_no_open_not_flagged(self):
-        cmd = "hermes dashboard --no-open"
-        dangerous, _, _ = detect_dangerous_command(cmd)
-        assert dangerous is False
-
-    def test_python_m_hermes_cli_insecure_detected(self):
-        cmd = "python -m hermes_cli.main dashboard --insecure"
-        dangerous, _, desc = detect_dangerous_command(cmd)
-        assert dangerous is True
-        assert "python -m" in desc.lower()
-
-    def test_python_m_hermes_cli_public_host_detected(self):
-        cmd = "python -m hermes_cli.main dashboard --host 0.0.0.0"
-        dangerous, _, desc = detect_dangerous_command(cmd)
-        assert dangerous is True
-        assert "python -m" in desc.lower()
-
-    def test_python_m_hermes_cli_localhost_not_flagged(self):
-        cmd = "python -m hermes_cli.main dashboard --host 127.0.0.1"
-        dangerous, _, _ = detect_dangerous_command(cmd)
-        assert dangerous is False
-
-    def test_python_m_hermes_cli_default_not_flagged(self):
-        cmd = "python -m hermes_cli.main dashboard"
-        dangerous, _, _ = detect_dangerous_command(cmd)
-        assert dangerous is False
+        assert dangerous is expected, f"unexpected verdict for {cmd!r}"

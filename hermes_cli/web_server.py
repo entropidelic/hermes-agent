@@ -2418,8 +2418,10 @@ def start_server(
     # The session token is bound to this process — it dies when the server
     # stops. It is passed to the browser via the URL fragment (never sent to
     # the server, never logged by proxies) and scrubbed from the address bar
-    # by the SPA on first load.
-    url = f"http://{host}:{port}/#tk={_SESSION_TOKEN}"
+    # by the SPA on first load. RFC 3986 §3.2.2 requires IPv6 literals to
+    # be bracketed in a URL's authority component.
+    display_host = f"[{host}]" if ":" in host else host
+    url = f"http://{display_host}:{port}/#tk={_SESSION_TOKEN}"
 
     if open_browser:
         import webbrowser

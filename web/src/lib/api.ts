@@ -8,24 +8,23 @@ const TOKEN_STORAGE_KEY = "hermes.sessionToken";
 let _sessionToken: string | null = null;
 
 function _consumeTokenFromHash(): string | null {
-  const hash = window.location.hash;
-  if (!hash) return null;
-  const match = hash.match(/(?:^#|&)tk=([^&]+)/);
-  if (!match) return null;
-  const token = decodeURIComponent(match[1]);
-  // Strip the token from the URL bar so it doesn't leak via browser
-  // history, screenshots, or accidental copy-paste. The first replace
-  // removes `#tk=…` or `&tk=…`; we then normalize a dangling leading `&`
-  // or `#&` back into a proper `#`-prefixed fragment so the remaining
-  // params don't spill into the query string.
-  let cleanHash = hash.replace(/(?:^#|&)tk=[^&]*/g, "");
-  if (cleanHash && !cleanHash.startsWith("#")) {
-    cleanHash = "#" + cleanHash.replace(/^[&#]/, "");
-  } else if (cleanHash === "#") {
-    cleanHash = "";
-  }
+  // Parse the URL fragment as x-www-form-urlencoded. URLSearchParams
+  // handles encoding, ordering, duplicates, and trailing separators for
+  // us, so we don't have to reinvent fragment parsing. Valueless keys
+  // (e.g. `#foo` in hash-routing contexts) come back as empty strings
+  // on `toString()`, which is harmless for our use and keeps the code
+  // declarative.
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const token = params.get("tk");
+  if (!token) return null;
+  params.delete("tk");
+  const rest = params.toString();
   const newUrl =
-    window.location.pathname + window.location.search + cleanHash;
+    window.location.pathname +
+    window.location.search +
+    (rest ? "#" + rest : "");
+  // Strip the token from the URL bar so it doesn't leak via browser
+  // history, screenshots, or accidental copy-paste.
   window.history.replaceState(null, "", newUrl);
   return token;
 }
