@@ -18,7 +18,7 @@ function _consumeTokenFromHash(): string | null {
   // removes `#tk=…` or `&tk=…`; we then normalize a dangling leading `&`
   // or `#&` back into a proper `#`-prefixed fragment so the remaining
   // params don't spill into the query string.
-  let cleanHash = hash.replace(/(?:^#|&)tk=[^&]*/, "");
+  let cleanHash = hash.replace(/(?:^#|&)tk=[^&]*/g, "");
   if (cleanHash && !cleanHash.startsWith("#")) {
     cleanHash = "#" + cleanHash.replace(/^[&#]/, "");
   } else if (cleanHash === "#") {
