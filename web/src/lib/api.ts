@@ -8,12 +8,6 @@ const TOKEN_STORAGE_KEY = "hermes.sessionToken";
 let _sessionToken: string | null = null;
 
 function _consumeTokenFromHash(): string | null {
-  // Parse the URL fragment as x-www-form-urlencoded. URLSearchParams
-  // handles encoding, ordering, duplicates, and trailing separators for
-  // us, so we don't have to reinvent fragment parsing. Valueless keys
-  // (e.g. `#foo` in hash-routing contexts) come back as empty strings
-  // on `toString()`, which is harmless for our use and keeps the code
-  // declarative.
   const params = new URLSearchParams(window.location.hash.slice(1));
   const token = params.get("tk");
   if (!token) return null;

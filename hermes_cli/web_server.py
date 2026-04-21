@@ -2113,10 +2113,9 @@ async def get_usage_analytics(days: int = 30):
 def mount_spa(application: FastAPI):
     """Mount the built SPA. Falls back to index.html for client-side routing.
 
-    The session token is NOT embedded in the served HTML. Clients receive
-    it via a one-time URL fragment (``#tk=<token>``) printed to the terminal
-    by ``start_server``; the SPA reads the fragment, stashes the token in
-    sessionStorage, and scrubs it from the address bar.
+    Clients receive session token via a one-time URL fragment (``#tk=<token>``)
+    printed to the terminal by ``start_server``; the SPA reads the fragment,
+    stashes the token in sessionStorage, and scrubs it from the address bar.
     """
     if not WEB_DIST.exists():
         @application.get("/{full_path:path}")
@@ -2386,16 +2385,7 @@ def start_server(
     open_browser: bool = True,
     allow_public: bool = False,
 ):
-    """Start the web UI server.
-
-    The ephemeral session token is printed to stdout as part of the access
-    URL (``http://<host>:<port>/#tk=<token>``). Anything that captures
-    terminal output — tmux scrollback, ``script``, terminal recorders, CI
-    log aggregators — will therefore capture the token. The token dies
-    when this process exits, which bounds the exposure, but operators
-    running the dashboard in recorded or shared sessions should be aware
-    of this trade-off.
-    """
+    """Start the web UI server."""
     import uvicorn
 
     _LOCALHOST = ("127.0.0.1", "localhost", "::1")
@@ -2415,13 +2405,7 @@ def start_server(
     # Host headers against it. Defends against DNS rebinding (GHSA-ppp5-vxwm-4cf7).
     app.state.bound_host = host
 
-    # The session token is bound to this process — it dies when the server
-    # stops. It is passed to the browser via the URL fragment (never sent to
-    # the server, never logged by proxies) and scrubbed from the address bar
-    # by the SPA on first load. RFC 3986 §3.2.2 requires IPv6 literals to
-    # be bracketed in a URL's authority component.
-    display_host = f"[{host}]" if ":" in host else host
-    url = f"http://{display_host}:{port}/#tk={_SESSION_TOKEN}"
+    url = f"http://{host}:{port}/#tk={_SESSION_TOKEN}"
 
     if open_browser:
         import webbrowser

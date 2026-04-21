@@ -136,19 +136,9 @@ DANGEROUS_PATTERNS = [
     # a script is first made executable then immediately run. The script
     # content may contain dangerous commands that individual patterns miss.
     (r'\bchmod\s+\+x\b.*[;&|]+\s*\./', "chmod +x followed by immediate execution"),
-    # Dashboard network-exposure protection: the web dashboard serves API
-    # keys and config. --insecure is the explicit escape hatch that allows
-    # binding to non-localhost; --host <non-local> is the other half. Either
-    # signals intent to expose the dashboard on the network and must go
-    # through an approval prompt regardless of the dashboard's own guard.
-    #
-    # These patterns are a speed bump, not a boundary. Alternate invocations
-    # (shell aliases, direct uvicorn, custom wrappers) can bypass the string
-    # match. The authoritative gate is ``start_server`` in
-    # ``hermes_cli/web_server.py`` which refuses to bind to non-localhost
-    # without --insecure and emits a loud warning when --insecure is used.
-    # The patterns below catch the two CLI forms we ship so that an agent
-    # pasting one of them still triggers a human approval prompt.
+    # Dashboard network-exposure: --insecure or --host <non-local> publishes
+    # API keys and config on the network. Speed bump only — the authoritative
+    # gate is ``start_server`` in ``hermes_cli/web_server.py``.
     (r'\bhermes\s+dashboard\b.*--insecure\b', "expose hermes dashboard to network (--insecure)"),
     (r'\bhermes\s+dashboard\b.*--host[=\s]+(?!(?:127\.0\.0\.1|localhost|::1|0:0:0:0:0:0:0:1)\b)\S+', "bind hermes dashboard to non-localhost address"),
     (r'\bhermes_cli(?:\.main)?\b.*\bdashboard\b.*--insecure\b', "expose hermes dashboard to network (python -m form)"),
