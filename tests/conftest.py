@@ -184,8 +184,13 @@ _HERMES_BEHAVIORAL_VARS = frozenset({
     "HERMES_BACKGROUND_NOTIFICATIONS",
     "HERMES_EXEC_ASK",
     "HERMES_HOME_MODE",
+    "HERMES_WRITE_SAFE_ROOT",
     "BROWSER_CDP_URL",
     "CAMOFOX_URL",
+    # Terminal backend selection — leaking this between tests causes
+    # file_ops handlers to try spinning up Modal/Docker sandboxes in
+    # envs that have no creds, breaking unrelated tests.
+    "TERMINAL_ENV",
     # Platform allowlists — not credentials, but if set from any source
     # (user shell, earlier leaky test, CI env), they change gateway auth
     # behavior and flake button-authorization tests.
