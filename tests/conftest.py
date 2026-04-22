@@ -184,7 +184,6 @@ _HERMES_BEHAVIORAL_VARS = frozenset({
     "HERMES_BACKGROUND_NOTIFICATIONS",
     "HERMES_EXEC_ASK",
     "HERMES_HOME_MODE",
-    "HERMES_WRITE_SAFE_ROOT",
     "BROWSER_CDP_URL",
     "CAMOFOX_URL",
     # Terminal backend selection — leaking this between tests causes
