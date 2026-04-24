@@ -1,5 +1,7 @@
 const BASE = "";
 
+import type { DashboardTheme } from "@/themes/types";
+
 // Ephemeral session token for protected endpoints.
 // The server prints a one-time URL with `#tk=<token>`; we consume the
 // fragment on first load, persist the token in sessionStorage so reloads
@@ -23,7 +25,7 @@ function _consumeTokenFromHash(): string | null {
   return token;
 }
 
-function _loadSessionToken(): string | null {
+export function loadSessionToken(): string | null {
   if (_sessionToken) return _sessionToken;
   const fromHash = _consumeTokenFromHash();
   if (fromHash) {
@@ -56,13 +58,20 @@ function _clearSessionToken(): void {
     // ignore
   }
 }
+const SESSION_HEADER = "X-Hermes-Session-Token";
+
+function setSessionHeader(headers: Headers, token: string): void {
+  if (!headers.has(SESSION_HEADER)) {
+    headers.set(SESSION_HEADER, token);
+  }
+}
 
 export async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
   // Inject the session token into all /api/ requests.
   const headers = new Headers(init?.headers);
-  const token = _loadSessionToken();
-  if (token && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${token}`);
+  const token = loadSessionToken();
+  if (token) {
+    setSessionHeader(headers, token);
   }
   const res = await fetch(`${BASE}${url}`, { ...init, headers });
   if (res.status === 401) {
@@ -82,7 +91,7 @@ export async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> 
 }
 
 async function getSessionToken(): Promise<string> {
-  const token = _loadSessionToken();
+  const token = loadSessionToken();
   if (token) return token;
   throw new Error(
     "Session token not available — open the dashboard via the URL printed by `hermes dashboard`",
@@ -145,7 +154,7 @@ export const api = {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        [SESSION_HEADER]: token,
       },
       body: JSON.stringify({ key }),
     });
@@ -191,7 +200,7 @@ export const api = {
       `/api/providers/oauth/${encodeURIComponent(providerId)}`,
       {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { [SESSION_HEADER]: token },
       },
     );
   },
@@ -203,7 +212,7 @@ export const api = {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          [SESSION_HEADER]: token,
         },
         body: "{}",
       },
@@ -217,7 +226,7 @@ export const api = {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          [SESSION_HEADER]: token,
         },
         body: JSON.stringify({ session_id: sessionId, code }),
       },
@@ -233,7 +242,7 @@ export const api = {
       `/api/providers/oauth/sessions/${encodeURIComponent(sessionId)}`,
       {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { [SESSION_HEADER]: token },
       },
     );
   },
@@ -541,6 +550,9 @@ export interface DashboardThemeSummary {
   description: string;
   label: string;
   name: string;
+  /** Full theme definition for user themes; undefined for built-ins
+   *  (which the frontend already has locally). */
+  definition?: DashboardTheme;
 }
 
 export interface DashboardThemesResponse {
@@ -556,7 +568,12 @@ export interface PluginManifestResponse {
   description: string;
   icon: string;
   version: string;
-  tab: { path: string; position: string };
+  tab: {
+    path: string;
+    position?: string;
+    override?: string;
+    hidden?: boolean;
+  };
   entry: string;
   css?: string | null;
   has_api: boolean;
