@@ -2614,14 +2614,7 @@ def mount_spa(application: FastAPI):
     _index_headers = {"Cache-Control": "no-store, no-cache, must-revalidate"}
 
     def _serve_index():
-        """Return index.html with the embedded-chat feature flag injected.
-
-        The session token is deliberately NOT embedded here — it is handed
-        to the browser via a one-time ``#tk=<token>`` URL fragment printed
-        by ``start_server``.  The only thing injected is the non-secret
-        ``__HERMES_DASHBOARD_EMBEDDED_CHAT__`` runtime flag consumed by
-        ``web/src/lib/dashboard-flags.ts``.
-        """
+        """Return index.html with the embedded-chat feature flag injected."""
         html = _index_path.read_text()
         chat_js = "true" if _DASHBOARD_EMBEDDED_CHAT_ENABLED else "false"
         flag_script = (
